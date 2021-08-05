@@ -14,7 +14,7 @@ class CZMQAbstractNotifier;
 
 namespace llmq {
     class CChainLockSig;
-    class CInstantSendLock;
+    class InstantSendDeterministicLock;
     class CRecoveredSig;
 } // namespace llmq
 
@@ -43,7 +43,7 @@ public:
     virtual bool NotifyBlock(const CBlockIndex *pindex);
     virtual bool NotifyChainLock(const CBlockIndex *pindex, const std::shared_ptr<const llmq::CChainLockSig>& clsig);
     virtual bool NotifyTransaction(const CTransaction &transaction);
-    virtual bool NotifyTransactionLock(const CTransactionRef& transaction, const std::shared_ptr<const llmq::CInstantSendLock>& islock);
+    virtual bool NotifyTransactionLock(const CTransactionRef& transaction, const std::shared_ptr<const llmq::InstantSendDeterministicLock>& islock);
     virtual bool NotifyGovernanceVote(const std::shared_ptr<const CGovernanceVote>& vote);
     virtual bool NotifyGovernanceObject(const std::shared_ptr<const CGovernanceObject>& object);
     virtual bool NotifyInstantSendDoubleSpendAttempt(const CTransactionRef& currentTx, const CTransactionRef& previousTx);

@@ -20,23 +20,34 @@
 namespace llmq
 {
 
-class CInstantSendLock
+struct CInstantSendLock
 {
-public:
     std::vector<COutPoint> inputs;
     uint256 txid;
     CBLSLazySignature sig;
 
-public:
     SERIALIZE_METHODS(CInstantSendLock, obj)
     {
         READWRITE(obj.inputs, obj.txid, obj.sig);
     }
-
-    uint256 GetRequestId() const;
 };
 
-typedef std::shared_ptr<CInstantSendLock> CInstantSendLockPtr;
+struct InstantSendDeterministicLock : public CInstantSendLock
+{
+    uint8_t version = 1;
+    uint256 cycle_hash;
+
+    uint256 GetRequestId() const;
+    uint256 GetMessageHash() const;
+
+    SERIALIZE_METHODS(InstantSendDeterministicLock, obj)
+    {
+        READWRITE(obj.version, obj.inputs, obj.txid, obj.cycle_hash, obj.sig);
+        // READWRITE(obj.inputs, obj.txid, obj.sig);
+    }
+};
+
+using InstantSendDeterministicLockPtr = std::shared_ptr<InstantSendDeterministicLock>;
 
 class CInstantSendDb
 {
@@ -47,7 +58,7 @@ private:
 
     std::unique_ptr<CDBWrapper> db{nullptr};
 
-    mutable unordered_lru_cache<uint256, CInstantSendLockPtr, StaticSaltedHasher, 10000> islockCache;
+    mutable unordered_lru_cache<uint256, InstantSendDeterministicLockPtr, StaticSaltedHasher, 10000> islockCache;
     mutable unordered_lru_cache<uint256, uint256, StaticSaltedHasher, 10000> txidCache;
     mutable unordered_lru_cache<COutPoint, uint256, SaltedOutpointHasher, 10000> outpointCache;
 
@@ -64,7 +75,7 @@ public:
      * @param hash The hash of the InstantSend Lock
      * @param islock The InstantSend Lock object itself
      */
-    void WriteNewInstantSendLock(const uint256& hash, const CInstantSendLock& islock);
+    void WriteNewInstantSendLock(const uint256& hash, const InstantSendDeterministicLock& islock);
     /**
      * This method removes a InstantSend Lock from the database and is called when a tx with an IS lock is confirmed and Chainlocked
      * @param batch Object used to batch many calls together
@@ -72,7 +83,7 @@ public:
      * @param islock The InstantSend Lock object itself
      * @param keep_cache Should we still keep corresponding entries in the cache or not
      */
-    void RemoveInstantSendLock(CDBBatch& batch, const uint256& hash, CInstantSendLockPtr islock, bool keep_cache = true);
+    void RemoveInstantSendLock(CDBBatch& batch, const uint256& hash, InstantSendDeterministicLockPtr islock, bool keep_cache = true);
 
     /**
      * This method updates a DB entry for an InstantSend Lock from being not included in a block to being included in a block
@@ -92,7 +103,7 @@ public:
      * @param nUntilHeight Removes all IS Locks confirmed up until nUntilHeight
      * @return returns an unordered_map of the hash of the IS Locks and a pointer object to the IS Locks for all IS Locks which were removed
      */
-    std::unordered_map<uint256, CInstantSendLockPtr> RemoveConfirmedInstantSendLocks(int nUntilHeight);
+    std::unordered_map<uint256, InstantSendDeterministicLockPtr> RemoveConfirmedInstantSendLocks(int nUntilHeight);
     /**
      * Removes IS Locks from the archive if the tx was confirmed 100 blocks before nUntilHeight
      * @param nUntilHeight the height from which to base the remove of archive IS Locks
@@ -113,7 +124,7 @@ public:
      * @param use_cache Should we try using the cache first or not
      * @return A Pointer object to the IS Lock, returns nullptr if it doesn't exist
      */
-    CInstantSendLockPtr GetInstantSendLockByHash(const uint256& hash, bool use_cache = true) const;
+    InstantSendDeterministicLockPtr GetInstantSendLockByHash(const uint256& hash, bool use_cache = true) const;
     /**
      * Gets an IS Lock hash based on the txid the IS Lock is for
      * @param txid The txid which is being searched for
@@ -125,13 +136,13 @@ public:
      * @param txid The txid for which the IS Lock Pointer is being returned
      * @return Returns the IS Lock Pointer associated with the txid, returns nullptr if it doesn't exist
      */
-    CInstantSendLockPtr GetInstantSendLockByTxid(const uint256& txid) const;
+    InstantSendDeterministicLockPtr GetInstantSendLockByTxid(const uint256& txid) const;
     /**
      * Gets an IS Lock pointer from an input given
      * @param outpoint Since all inputs are really just outpoints that are being spent
      * @return IS Lock Pointer associated with that input.
      */
-    CInstantSendLockPtr GetInstantSendLockByInput(const COutPoint& outpoint) const;
+    InstantSendDeterministicLockPtr GetInstantSendLockByInput(const COutPoint& outpoint) const;
 
     /**
      * Gets a vector of IS Lock hashes of the IS Locks which rely on or are children of the parent IS Lock
@@ -171,12 +182,12 @@ private:
      * recovered signatures for all inputs of a TX. At the same time, we initiate signing of our sigshare for the islock.
      * When the recovered sig for the islock later arrives, we can finish the islock and propagate it.
      */
-    std::unordered_map<uint256, CInstantSendLock, StaticSaltedHasher> creatingInstantSendLocks GUARDED_BY(cs);
+    std::unordered_map<uint256, InstantSendDeterministicLock, StaticSaltedHasher> creatingInstantSendLocks GUARDED_BY(cs);
     // maps from txid to the in-progress islock
-    std::unordered_map<uint256, CInstantSendLock*, StaticSaltedHasher> txToCreatingInstantSendLocks GUARDED_BY(cs);
+    std::unordered_map<uint256, InstantSendDeterministicLock*, StaticSaltedHasher> txToCreatingInstantSendLocks GUARDED_BY(cs);
 
     // Incoming and not verified yet
-    std::unordered_map<uint256, std::pair<NodeId, CInstantSendLockPtr>, StaticSaltedHasher> pendingInstantSendLocks GUARDED_BY(cs);
+    std::unordered_map<uint256, std::pair<NodeId, InstantSendDeterministicLockPtr>, StaticSaltedHasher> pendingInstantSendLocks GUARDED_BY(cs);
 
     // TXs which are neither IS locked nor ChainLocked. We use this to determine for which TXs we need to retry IS locking
     // of child TXs
@@ -210,19 +221,21 @@ private:
     bool TrySignInputLocks(const CTransaction& tx, bool allowResigning, Consensus::LLMQType llmqType);
     void TrySignInstantSendLock(const CTransaction& tx);
 
-    void ProcessMessageInstantSendLock(const CNode* pfrom, const CInstantSendLockPtr& islock);
-    static bool PreVerifyInstantSendLock(const CInstantSendLock& islock);
+    void ProcessMessageInstantSendLock(const CNode* pfrom, const InstantSendDeterministicLockPtr& islock);
+    InstantSendDeterministicLockPtr ComputeInstantSendLockCycleHash(const InstantSendDeterministicLockPtr& islock, const uint256& quorum_hash);
+    static bool PreVerifyInstantSendLock(const InstantSendDeterministicLock& islock);
+    static bool PreVerifyInstantSendDeterministicLock(const InstantSendDeterministicLock& islock);
     bool ProcessPendingInstantSendLocks();
-    std::unordered_set<uint256> ProcessPendingInstantSendLocks(int signOffset, const std::unordered_map<uint256, std::pair<NodeId, CInstantSendLockPtr>, StaticSaltedHasher>& pend, bool ban);
-    void ProcessInstantSendLock(NodeId from, const uint256& hash, const CInstantSendLockPtr& islock);
+    std::unordered_set<uint256> ProcessPendingInstantSendLocks(int signOffset, const std::unordered_map<uint256, std::pair<NodeId, InstantSendDeterministicLockPtr>, StaticSaltedHasher>& pend, bool ban);
+    void ProcessInstantSendLock(NodeId from, const uint256& hash, const InstantSendDeterministicLockPtr& islock);
 
     void AddNonLockedTx(const CTransactionRef& tx, const CBlockIndex* pindexMined);
     void RemoveNonLockedTx(const uint256& txid, bool retryChildren);
     void RemoveConflictedTx(const CTransaction& tx);
-    void TruncateRecoveredSigsForInputs(const CInstantSendLock& islock);
+    void TruncateRecoveredSigsForInputs(const InstantSendDeterministicLock& islock);
 
-    void RemoveMempoolConflictsForLock(const uint256& hash, const CInstantSendLock& islock);
-    void ResolveBlockConflicts(const uint256& islockHash, const CInstantSendLock& islock);
+    void RemoveMempoolConflictsForLock(const uint256& hash, const InstantSendDeterministicLock& islock);
+    void ResolveBlockConflicts(const uint256& islockHash, const InstantSendDeterministicLock& islock);
     static void AskNodesForLockedTx(const uint256& txid);
     void ProcessPendingRetryLockTxs();
 
@@ -232,7 +245,7 @@ private:
 
 public:
     bool IsLocked(const uint256& txHash) const;
-    CInstantSendLockPtr GetConflictingLock(const CTransaction& tx) const;
+    InstantSendDeterministicLockPtr GetConflictingLock(const CTransaction& tx) const;
 
     void HandleNewRecoveredSig(const CRecoveredSig& recoveredSig) override;
 
@@ -244,14 +257,14 @@ public:
     void BlockDisconnected(const std::shared_ptr<const CBlock>& pblock, const CBlockIndex* pindexDisconnected);
 
     bool AlreadyHave(const CInv& inv) const;
-    bool GetInstantSendLockByHash(const uint256& hash, CInstantSendLock& ret) const;
-    CInstantSendLockPtr GetInstantSendLockByTxid(const uint256& txid) const;
+    bool GetInstantSendLockByHash(const uint256& hash, InstantSendDeterministicLock& ret) const;
+    InstantSendDeterministicLockPtr GetInstantSendLockByTxid(const uint256& txid) const;
     bool GetInstantSendLockHashByTxid(const uint256& txid, uint256& ret) const;
 
     void NotifyChainLock(const CBlockIndex* pindexChainLock);
     void UpdatedBlockTip(const CBlockIndex* pindexNew);
 
-    void RemoveConflictingLock(const uint256& islockHash, const CInstantSendLock& islock);
+    void RemoveConflictingLock(const uint256& islockHash, const InstantSendDeterministicLock& islock);
 
     size_t GetInstantSendLockCount() const;
 };

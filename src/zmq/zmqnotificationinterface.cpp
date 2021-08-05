@@ -221,7 +221,7 @@ void CZMQNotificationInterface::BlockDisconnected(const std::shared_ptr<const CB
     }
 }
 
-void CZMQNotificationInterface::NotifyTransactionLock(const CTransactionRef& tx, const std::shared_ptr<const llmq::CInstantSendLock>& islock)
+void CZMQNotificationInterface::NotifyTransactionLock(const CTransactionRef& tx, const std::shared_ptr<const llmq::InstantSendDeterministicLock>& islock)
 {
     for (std::list<CZMQAbstractNotifier*>::iterator i = notifiers.begin(); i!=notifiers.end(); )
     {

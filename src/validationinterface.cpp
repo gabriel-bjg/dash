@@ -53,7 +53,7 @@ struct MainSignalsInstance {
     boost::signals2::signal<void (const CBlockIndex *, const std::shared_ptr<const CBlock>&)> NewPoWValidBlock;
     boost::signals2::signal<void (const CBlockIndex *)>AcceptedBlockHeader;
     boost::signals2::signal<void (const CBlockIndex *, bool)>NotifyHeaderTip;
-    boost::signals2::signal<void (const CTransactionRef& tx, const std::shared_ptr<const llmq::CInstantSendLock>& islock)>NotifyTransactionLock;
+    boost::signals2::signal<void (const CTransactionRef& tx, const std::shared_ptr<const llmq::InstantSendDeterministicLock>& islock)>NotifyTransactionLock;
     boost::signals2::signal<void (const CBlockIndex* pindex, const std::shared_ptr<const llmq::CChainLockSig>& clsig)>NotifyChainLock;
     boost::signals2::signal<void (const std::shared_ptr<const CGovernanceVote>& vote)>NotifyGovernanceVote;
     boost::signals2::signal<void (const std::shared_ptr<const CGovernanceObject>& object)>NotifyGovernanceObject;
@@ -225,7 +225,7 @@ void CMainSignals::NotifyHeaderTip(const CBlockIndex *pindexNew, bool fInitialDo
     m_internals->NotifyHeaderTip(pindexNew, fInitialDownload);
 }
 
-void CMainSignals::NotifyTransactionLock(const CTransactionRef &tx, const std::shared_ptr<const llmq::CInstantSendLock>& islock) {
+void CMainSignals::NotifyTransactionLock(const CTransactionRef &tx, const std::shared_ptr<const llmq::InstantSendDeterministicLock>& islock) {
     m_internals->m_schedulerClient.AddToProcessQueue([tx, islock, this] {
         m_internals->NotifyTransactionLock(tx, islock);
     });

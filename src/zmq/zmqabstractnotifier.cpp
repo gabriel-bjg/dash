@@ -26,7 +26,7 @@ bool CZMQAbstractNotifier::NotifyTransaction(const CTransaction &/*transaction*/
     return true;
 }
 
-bool CZMQAbstractNotifier::NotifyTransactionLock(const CTransactionRef &/*transaction*/, const std::shared_ptr<const llmq::CInstantSendLock>& /*islock*/)
+bool CZMQAbstractNotifier::NotifyTransactionLock(const CTransactionRef &/*transaction*/, const std::shared_ptr<const llmq::InstantSendDeterministicLock>& /*islock*/)
 {
     return true;
 }
