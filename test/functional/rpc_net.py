@@ -24,7 +24,7 @@ from test_framework.messages import (
     NODE_NETWORK,
     NODE_GETUTXO,NODE_BLOOM,
     NODE_NETWORK_LIMITED,
-    NODE_HEADERS_COMPRESSED
+    NODE_HEADERS_COMPRESSED,
 )
 
 
